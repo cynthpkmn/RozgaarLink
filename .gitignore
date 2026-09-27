@@ -1,0 +1,15 @@
+service-account.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.txt
+!requirements.txt
+.env
+.env.*
+!.env.example
+*.env
+*.db
+*.sqlite3
+.DS_Store
+Thumbs.db

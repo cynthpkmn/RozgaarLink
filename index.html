@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>RozgaarLink — Work Nearby. Earn Better.</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'rl-bg': '#07090E',
+            'rl-surface': '#0E1424',
+            'rl-card': '#131D31',
+            'rl-indigo': '#4F46E5',
+            'rl-blue': '#2563EB'
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Core App Stylesheet -->
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="bg-[#030712] text-slate-100 flex flex-col items-center min-h-screen py-0 sm:py-4 selection:bg-indigo-600 selection:text-white">
+
+  <!-- Prototype Top Utility Bar (For Desktop Testing & Preview Toggles) -->
+  <header class="w-full max-w-[430px] flex items-center justify-between px-3 py-1.5 mb-1.5 text-xs text-slate-400">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="font-bold text-white tracking-wide">ROZGAARLINK</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">PROTOTYPE</span>
+      <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 font-medium">✨ Gemini AI</span>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <!-- Device Viewport Mode Switcher -->
+      <button id="toggle-view-mode-btn" onclick="toggleFullscreenView()" class="hover:text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] transition">
+        📱 Frame
+      </button>
+
+      <!-- Seed Sample Jobs -->
+      <button onclick="window.RozgaarState.seedDemoJobs()" class="hover:text-white px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800 text-[11px] transition" title="Seed sample employer jobs around current location">
+        ⚡ Seed Jobs
+      </button>
+
+      <!-- Clear Jobs (Test Empty State) -->
+      <button onclick="window.RozgaarState.clearAllJobs()" class="hover:text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] transition" title="Clear all jobs to test clean initial state">
+        🗑️ Clear
+      </button>
+
+      <!-- Reset Demo Data -->
+      <button onclick="if(confirm('Reset all demo data to default?')){ window.RozgaarState.resetToDefaultData(); location.reload(); }" class="hover:text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] transition" title="Reset sample workers and jobs">
+        🔄 Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- Realistic Smartphone Device Shell -->
+  <main class="device-wrapper">
+    <!-- Top Phone Island / Status Bar -->
+    <div class="phone-island-bar">
+      <!-- Clock -->
+      <span id="phone-status-time" class="font-semibold text-slate-300">09:41</span>
+
+      <!-- Dynamic Island / Speaker Notch -->
+      <div class="dynamic-island">
+        <div class="camera-lens"></div>
+        <div class="w-2 h-2 rounded-full bg-indigo-950"></div>
+      </div>
+
+      <!-- Battery & Signal Icons -->
+      <div class="flex items-center gap-1.5 text-slate-300 text-[11px]">
+        <span>5G</span>
+        <span>📶</span>
+        <span>🔋</span>
+      </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Main Viewport Container -->
+    <div class="mobile-viewport">
+      <div id="app-viewport-content" class="w-full h-full flex flex-col overflow-hidden">
+        <!-- Screens render here dynamically -->
+      </div>
+    </div>
+
+    <!-- Bottom Indicator Bar (iOS Style Home Bar) -->
+    <div class="w-full h-4 bg-[#07090E] flex items-center justify-center flex-shrink-0">
+      <div class="w-32 h-1 bg-slate-700/80 rounded-full"></div>
+    </div>
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODALS: VOICE ASSISTANT & RATINGS          -->
+  <!-- ========================================== -->
+
+  <!-- Voice-to-Text Dictation Sheet Modal -->
+  <div id="voice-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+    <div class="bg-[#0D1424] border border-indigo-500/40 rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🎤</span>
+          <h3 id="voice-modal-title" class="text-sm font-bold text-white">Voice-to-Text Input</h3>
+        </div>
+        <button onclick="window.RozgaarVoice.close()" class="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm">
+          ✕
+        </button>
+      </div>
+
+      <div class="flex flex-col items-center py-2">
+        <!-- Pulsing Microphone Button -->
+        <button id="voice-modal-mic-icon" onclick="window.RozgaarVoice.startListening()" class="w-20 h-20 rounded-full bg-indigo-600 text-white flex items-center justify-center text-3xl shadow-xl transition listening-pulse">
+          🎤
+        </button>
+
+        <p id="voice-status-text" class="text-xs font-semibold text-indigo-300 mt-4 text-center">
+          Listening... Speak clearly in Hindi, Marathi, or English
+        </p>
+
+        <!-- Animated Waveform Bars -->
+        <div id="voice-wave-bars" class="flex items-center gap-1.5 h-8 mt-3">
+          <div class="audio-wave-bar" style="animation-delay: 0.1s"></div>
+          <div class="audio-wave-bar" style="animation-delay: 0.3s"></div>
+          <div class="audio-wave-bar" style="animation-delay: 0.5s"></div>
+          <div class="audio-wave-bar" style="animation-delay: 0.2s"></div>
+          <div class="audio-wave-bar" style="animation-delay: 0.4s"></div>
+          <div class="audio-wave-bar" style="animation-delay: 0.6s"></div>
+          <div class="audio-wave-bar" style="animation-delay: 0.15s"></div>
+        </div>
+      </div>
+
+      <!-- Live Transcript Preview -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 min-h-[60px] flex items-center">
+        <p id="voice-transcript-preview" class="text-xs text-slate-200 font-medium italic">
+          "..."
+        </p>
+      </div>
+
+      <!-- Quick Preset Suggestions (Guarantees testing on any browser/OS) -->
+      <div>
+        <div id="voice-modal-samples-label" class="text-[10px] uppercase font-bold text-slate-400 mb-2">
+          Quick Voice Samples (Tap to dictate):
+        </div>
+        <div id="voice-presets-list" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+          <!-- Populated dynamically based on field -->
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2 pt-2">
+        <button id="voice-modal-cancel-btn" onclick="window.RozgaarVoice.close()" class="rl-btn rl-btn-secondary flex-1 py-2.5 text-xs">
+          Cancel
+        </button>
+        <button id="voice-modal-insert-btn" onclick="window.RozgaarVoice.applyTranscript()" class="rl-btn rl-btn-primary flex-1 py-2.5 text-xs font-bold">
+          Insert Text ✓
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rating & Review Modal -->
+  <div id="rating-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-[#0E1528] border border-indigo-500/40 rounded-3xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="rating-modal-title" class="text-sm font-bold text-white">Rate Work Experience</h3>
+        <button onclick="window.RozgaarState.closeRatingModal()" class="w-7 h-7 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm">
+          ✕
+        </button>
+      </div>
+
+      <div class="text-center py-2">
+        <p id="rating-modal-subtitle" class="text-xs text-slate-300 mb-3">Job marked completed! How was the work quality?</p>
+        
+        <!-- Interactive 5 Stars -->
+        <div class="flex items-center justify-center gap-2 text-2xl text-slate-600" id="rating-stars-container">
+          <span class="cursor-pointer hover:text-amber-400 transition" onclick="setRatingValue(1)">★</span>
+          <span class="cursor-pointer hover:text-amber-400 transition" onclick="setRatingValue(2)">★</span>
+          <span class="cursor-pointer hover:text-amber-400 transition" onclick="setRatingValue(3)">★</span>
+          <span class="cursor-pointer hover:text-amber-400 transition" onclick="setRatingValue(4)">★</span>
+          <span class="cursor-pointer hover:text-amber-400 transition text-amber-400" onclick="setRatingValue(5)">★</span>
+        </div>
+        <div id="rating-display-text" class="text-xs font-bold text-amber-400 mt-2">5.0 / 5.0 — Excellent Work</div>
+      </div>
+
+      <!-- Optional Review with 🎤 Voice Input -->
+      <div>
+        <label id="rating-modal-review-label" class="block text-xs font-semibold text-slate-400 mb-1">Optional Review</label>
+        <div class="rl-input-group">
+          <input type="text" id="rating-review-input" placeholder="e.g. Timely completion and high work quality" class="rl-input" />
+          <button type="button" class="rl-mic-btn" onclick="window.RozgaarVoice.open(document.getElementById('rating-review-input'), 'default')">🎤</button>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="pt-2">
+        <button id="rating-modal-submit-btn" onclick="submitRatingModalAction()" class="rl-btn rl-btn-primary w-full py-3 text-xs font-bold">
+          Submit Rating & Release Feedback ✓
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentRating = 5;
+    function setRatingValue(val) {
+      currentRating = val;
+      const stars = document.getElementById("rating-stars-container").children;
+      for (let i = 0; i < stars.length; i++) {
+        stars[i].className = i < val 
+          ? "cursor-pointer text-amber-400 transition" 
+          : "cursor-pointer text-slate-600 hover:text-amber-400 transition";
+      }
+      const lang = (window.RozgaarState && window.RozgaarState.getLanguage && window.RozgaarState.getLanguage()) || "en";
+      const ratingDescriptions = {
+        en: ["", "1.0 - Needs Improvement", "2.0 - Fair", "3.0 - Good Work", "4.0 - Very Good", "5.0 - Excellent Work"],
+        hi: ["", "1.0 - सुधार की आवश्यकता", "2.0 - ठीक", "3.0 - अच्छा काम", "4.0 - बहुत अच्छा", "5.0 - उत्कृष्ट कार्य"],
+        mr: ["", "1.0 - सुधारणेची गरज", "2.0 - सामान्य", "3.0 - चांगले काम", "4.0 - खूप छान", "5.0 - उत्कृष्ट काम"],
+        te: ["", "1.0 - మెరుగుదల అవసరం", "2.0 - పర్వాలేదు", "3.0 - మంచి పని", "4.0 - చాలా బాగుంది", "5.0 - అద్భుతమైన పని"],
+        ta: ["", "1.0 - முன்னேற்றம் தேவை", "2.0 - சுமாரானது", "3.0 - நல்ல வேலை", "4.0 - மிக நன்று", "5.0 - சிறந்த பணி"]
+      };
+      const list = ratingDescriptions[lang] || ratingDescriptions["en"];
+      const disp = document.getElementById("rating-display-text");
+      if (disp) disp.textContent = list[val] || `${val}.0 / 5.0`;
+    }
+
+    function submitRatingModalAction() {
+      const reviewInput = document.getElementById("rating-review-input");
+      const reviewText = reviewInput ? reviewInput.value : "";
+      window.RozgaarState.submitRating(currentRating, reviewText);
+      window.RozgaarState.closeRatingModal();
+    }
+
+    function toggleFullscreenView() {
+      const body = document.body;
+      const btn = document.getElementById("toggle-view-mode-btn");
+      if (body.classList.contains("fullscreen-mode")) {
+        body.classList.remove("fullscreen-mode");
+        btn.textContent = "📱 Frame";
+      } else {
+        body.classList.add("fullscreen-mode");
+        btn.textContent = "🖥️ Full";
+      }
+    }
+  </script>
+
+  <!-- Leaflet Map Engine (OpenStreetMap / CartoDB) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Firebase App & Firebase Auth SDKs (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+
+  <!-- Invisible reCAPTCHA Container for Firebase Phone OTP -->
+  <div id="recaptcha-container"></div>
+
+  <!-- Application Modules -->
+  <script src="js/translations.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/gemini.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- Bootstrapper -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      window.RozgaarApp.init();
+    });
+  </script>
+</body>
+</html>
